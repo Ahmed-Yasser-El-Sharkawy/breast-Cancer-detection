@@ -6,6 +6,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.transforms as transforms
 import base64
+import google.generativeai as genai
+import os
 
 def set_background_and_text(image_path):
     with open(image_path, "rb") as image_file:
@@ -54,6 +56,15 @@ def set_background_and_text(image_path):
     """
     st.markdown(css, unsafe_allow_html=True)
     
+def preprocess_image(img, size=(224, 224)):
+    img = img.convert('L')
+    transform = transforms.Compose([
+        transforms.Resize(size),
+        transforms.ToTensor()
+    ])
+    img_tensor = transform(img)
+    img_tensor = img_tensor.unsqueeze(0)  # Add batch dimension
+    return img_tensor
 
 class BaselineCNN(nn.Module):
     def __init__(self):
@@ -85,23 +96,84 @@ class BaselineCNN(nn.Module):
         x = torch.sigmoid(self.fc2(x))
         return x
 
-model = BaselineCNN()
-model.load_state_dict(torch.load('Model_Status/Breast_Cancer.pth', map_location=torch.device('cpu')))
-model.eval()
+def classify_ui():
+    model = BaselineCNN()
+    model.load_state_dict(torch.load('Model_Status/Breast_Cancer.pth', map_location=torch.device('cpu')))
+    model.eval()
+    set_background_and_text("Images_App/proxy-image.jpeg")
 
-def preprocess_image(img, size=(224, 224)):
-    img = img.convert('L')
-    transform = transforms.Compose([
-        transforms.Resize(size),
-        transforms.ToTensor()
-    ])
-    img_tensor = transform(img)
-    img_tensor = img_tensor.unsqueeze(0)  # Add batch dimension
-    return img_tensor
+    st.title("breast Cancer Classifier")
+    st.write("Upload an image to classify it as Normal or breast Cancer.")
+
+    main_class_names = ["Normal", "breast Cancer"]
+
+    uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
+
+    if uploaded_file is not None:
+        image = Image.open(uploaded_file)
+        st.image(image, caption='Uploaded Image')
+        st.write("Classifying...")
+
+        input_tensor = preprocess_image(image)
+        with torch.no_grad():
+            output = model(input_tensor)
+            prediction = output.item()
+
+        predicted_class = 1 if prediction >= 0.5 else 0
+        confidence = prediction if predicted_class == 1 else 1 - prediction
+        
+        st.write(f"**Predicted Class:** {main_class_names[predicted_class]}")
+        st.write(f"**Confidence:** {confidence:.4f}")
 
 
+def chat_ui():
+    genai.configure(api_key=Model_key)
+    
+    st.title("Chat with the Breast Cancer Classifier")
+    st.write("Ask me anything about breast cancer classification!")
+    flash = genai.GenerativeModel('gemini-1.5-flash')
+    
+    
+    if "messages" not in st.session_state:
+        st.session_state.messages = [
+            {"role": "assistant", "content": "أنا مساعد طبي، أقدم ردًا دقيقًا بلغة المستخدم👋"}
+        ]
+
+    # Display existing messages
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    # Accept new user input
+    if prompt := st.chat_input("Ask me anything about breast cancer"):
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        # Keep only last 5 messages for context
+        context_messages = st.session_state.messages[-5:]
+
+        # Format them as input (adjust depending on your model's expected format)
+        formatted_context = "\n".join(
+            [f"{m['role'].capitalize()}: {m['content']}" for m in context_messages]
+        )
+
+        # Pass context to the model
+        response = flash.generate_content(formatted_context)
+        reply = response.text
+
+        with st.chat_message("assistant"):
+            st.markdown(reply)
+
+        st.session_state.messages.append({"role": "assistant", "content": reply})
+
+    
+    
 st.sidebar.image("Images_App/faculty_of_Appied_Medical_Sciences.jpeg")
 st.sidebar.markdown("# Faculty of Health Applied Medical Science")
+
+
+
 st.sidebar.markdown("## **Supervisor:** Dr. Diana Abbas Al Sherif")
 st.sidebar.markdown("**Team Members:**")
 st.sidebar.markdown("1. Mohamed Osama")
@@ -112,27 +184,13 @@ st.sidebar.markdown("5. Aya Abdel Basset ")
 st.sidebar.markdown("6. Khaled Nour El Din")
 st.sidebar.markdown("7. Mohamed Ibrahim")
 
-set_background_and_text("Images_App/proxy-image.jpeg")
+tab = st.sidebar.radio("📚 App Views", [
+    "🔬 Model classification",
+    "🧠🤖 Chat with chatbot",
+])
 
-st.title("breast Cancer Classifier")
-st.write("Upload an image to classify it as Normal or breast Cancer.")
+if tab == "🔬 Model classification":
+    classify_ui()
 
-main_class_names = ["Normal", "breast Cancer"]
-
-uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
-
-if uploaded_file is not None:
-    image = Image.open(uploaded_file)
-    st.image(image, caption='Uploaded Image')
-    st.write("Classifying...")
-
-    input_tensor = preprocess_image(image)
-    with torch.no_grad():
-        output = model(input_tensor)
-        prediction = output.item()
-
-    predicted_class = 1 if prediction >= 0.5 else 0
-    confidence = prediction if predicted_class == 1 else 1 - prediction
-    
-    st.write(f"**Predicted Class:** {main_class_names[predicted_class]}")
-    st.write(f"**Confidence:** {confidence:.4f}")
+elif tab == "🧠🤖 Chat with chatbot":
+    chat_ui()
