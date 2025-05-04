@@ -127,7 +127,7 @@ def classify_ui():
 
 
 def chat_ui():
-    genai.configure(api_key=st.secrets["aModel_key"])
+    genai.configure(api_key=st.secrets["Model_key"])
     
     st.title("Chat with the Breast Cancer Classifier")
     st.write("Ask me anything about breast cancer classification!")
