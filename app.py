@@ -7,7 +7,7 @@ import torch.nn.functional as F
 import torchvision.transforms as transforms
 import base64
 import google.generativeai as genai
-import os
+
 
 def set_background_and_text(image_path):
     with open(image_path, "rb") as image_file:
@@ -96,14 +96,14 @@ class BaselineCNN(nn.Module):
         x = torch.sigmoid(self.fc2(x))
         return x
 
-def classify_ui():
+def classify_ui_MRI():
     model = BaselineCNN()
     model.load_state_dict(torch.load('Model_Status/Breast_Cancer.pth', map_location=torch.device('cpu')))
     model.eval()
     set_background_and_text("Images_App/proxy-image.jpeg")
 
     st.title("breast Cancer Classifier")
-    st.write("Upload an image to classify it as Normal or breast Cancer.")
+    st.write("Upload an image to classify it as Normal or breast Cancer MRI.")
 
     main_class_names = ["Normal", "breast Cancer"]
 
@@ -125,6 +125,34 @@ def classify_ui():
         st.write(f"**Predicted Class:** {main_class_names[predicted_class]}")
         st.write(f"**Confidence:** {confidence:.4f}")
 
+def classify_ui_Mamo():
+    model = BaselineCNN()
+    model.load_state_dict(torch.load('Model_Status/Breast_Cancer.pth', map_location=torch.device('cpu')))
+    model.eval()
+    set_background_and_text("Images_App/proxy-image.jpeg")
+
+    st.title("breast Cancer Classifier")
+    st.write("Upload an image to classify it as Normal or breast Cancer Mamo.")
+
+    main_class_names = ["Normal", "breast Cancer"]
+
+    uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
+
+    if uploaded_file is not None:
+        image = Image.open(uploaded_file)
+        st.image(image, caption='Uploaded Image')
+        st.write("Classifying...")
+
+        input_tensor = preprocess_image(image)
+        with torch.no_grad():
+            output = model(input_tensor)
+            prediction = output.item()
+
+        predicted_class = 1 if prediction >= 0.5 else 0
+        confidence = prediction if predicted_class == 1 else 1 - prediction
+        
+        st.write(f"**Predicted Class:** {main_class_names[predicted_class]}")
+        st.write(f"**Confidence:** {confidence:.4f}")
 
 def chat_ui():
     genai.configure(api_key=st.secrets["Model_key"])
@@ -185,12 +213,14 @@ st.sidebar.markdown("6. Khaled Nour El Din")
 st.sidebar.markdown("7. Mohamed Ibrahim")
 
 tab = st.sidebar.radio("📚 App Views", [
-    "🔬 Model classification",
+    "🔬 Model classification MRI",
+    "🔬 Model classification MaMo",
     "🧠🤖 Chat with chatbot",
 ])
 
-if tab == "🔬 Model classification":
-    classify_ui()
-
+if tab == "🔬 Model classification MRI":
+    classify_ui_MRI()
+elif tab == "🔬 Model classification MaMo":
+    classify_ui_Mamo()
 elif tab == "🧠🤖 Chat with chatbot":
     chat_ui()
