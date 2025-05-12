@@ -247,7 +247,7 @@ def chat_ui():
 
     
     
-st.sidebar.image("Images_App/faculty_of_Appied_Medical_Sciences.jpeg")
+st.sidebar.image("Images_App/faculty_of_Applied_Medical_Sciences.jpeg")
 st.sidebar.markdown("# Faculty of Applied Health Sciences Technology")
 
 
